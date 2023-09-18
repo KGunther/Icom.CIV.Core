@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.IO.Ports;
-using System.Windows.Forms;
+using Serilog;
 
 namespace Icom.CIV
 {
@@ -112,7 +112,7 @@ namespace Icom.CIV
         // Return list of available radios
         public string[] GetRadioNames()
         {
-            MessageBox.Show("Core Getradionames");
+            Log.Debug("Core Getradionames");
             int itemCount = Enum.GetNames(typeof(EnabledRadios)).Length;
             string[] rnames = new string[itemCount];
             uint item = 0;
@@ -314,15 +314,15 @@ namespace Icom.CIV
 
         public RadioInfo AutoDetectRadio(bool autoconnect = false)
         {
-            MessageBox.Show(" Core Autodetect entered");
+            Log.Debug("Core Autodetect entered");
             if (sp != null && sp.IsOpen)
             {
                 // If we have an open serial port, send the command to identify transceiver ID to broadcast address
                 byte[] command = { (byte)CommandBytes.COMMAND_TRANCEIVER_ID_READ, 0x00 };
-                MessageBox.Show("Waiting for response to ID read");
+                Log.Debug("Waiting for response to ID read");
                 TransmitCommandToRadio(command, 0x00);
                 byte[] result = WaitForResponse(250 + ((300 / (int)Config.SerialBaudRate) * 1000), true);
-                MessageBox.Show("response received");
+                Log.Debug("response received");
                 RadioInfo radioInfo = new RadioInfo();
 
                 // Search for empty array, empty result or NG result (bad command)
@@ -338,7 +338,7 @@ namespace Icom.CIV
                 radioInfo.CommPort = Config.SerialPort;
                 radioInfo.baudRate = Config.SerialBaudRate;
                 radioInfo.RadioName = GetEnumDescription(radioInfo.RadioID);
-                MessageBox.Show("Port:" + radioInfo.CommPort.ToString()+" baud:"+radioInfo.baudRate.ToString()+" RadioID:"+
+                Log.Debug("Port:" + radioInfo.CommPort.ToString()+" baud:"+radioInfo.baudRate.ToString()+" RadioID:"+
                                     radioInfo.RadioID.ToString());
    
                 return radioInfo;
@@ -357,6 +357,7 @@ namespace Icom.CIV
                         Config.ControllerPromiscuousLevel = PromiscuityLevel.PROMISCUOUS_ALLMESSAGES;
                         if (OpenSerialPort(thisPort, (int)thisBaud))
                         {
+                            Log.Debug("Testing port {0} at {1}", thisPort, thisBaud);
                             RadioInfo riTemp = AutoDetectRadio();
                             if (riTemp.RadioID != Radio.NULL_RADIO)
                             {

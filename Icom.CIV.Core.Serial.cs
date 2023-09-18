@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO.Ports;
 using System.Threading;
-using System.Windows.Forms;
+using Serilog;
 
 namespace Icom.CIV
 {
@@ -49,7 +49,7 @@ namespace Icom.CIV
         // Returns a list of serial ports available
         public string[] GetSerialPorts()
         {
-            MessageBox.Show("Core getserialports");
+            Log.Information("Core getserialports");
             return SerialPort.GetPortNames();
         }
 
