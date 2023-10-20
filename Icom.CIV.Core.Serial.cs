@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO.Ports;
+using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Serilog;
 
@@ -50,7 +51,9 @@ namespace Icom.CIV
         public string[] GetSerialPorts()
         {
             Log.Information("Core getserialports");
-            return SerialPort.GetPortNames();
+            //return SerialPort.GetPortNames();
+            string[] _tempSP = new string[] { "COM55" };
+            return _tempSP;
         }
 
         // Open serial port, and initialize for reception/sending of commands
@@ -67,7 +70,9 @@ namespace Icom.CIV
                 return false;
             }
 
+            Log.Debug("Creating port {0} in OpenSerialPort",portName);
             sp = new SerialPort(portName);
+            Log.Debug("serial port {0} defined", portName);
             try
             {
                 // Set specified data into config options
@@ -85,11 +90,15 @@ namespace Icom.CIV
                 sp.DataReceived += new SerialDataReceivedEventHandler(SerialDataReceivedHandler);
 
                 // Open serial port
+                Log.Debug("Openserialport: setting Read/Write TO to 2000 and opening");
+                sp.WriteTimeout = 2000;
+                sp.ReadTimeout = 2000;
                 sp.Open();
             }
             catch (System.Exception ex)
             {
                 serialException = ex;
+                Log.Debug("Serial exception {0} caught",ex.ToString());
                 return false;
             }
 

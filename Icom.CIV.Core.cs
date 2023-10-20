@@ -292,11 +292,13 @@ namespace Icom.CIV
         // Instantly send command to radio
         private void TransmitCommandToRadio(byte[] commandBuffer, byte overridedestination = 0xFF, byte overridesender = 0xFF, bool raw = false)
         {
+            Log.Debug("TransmitCommandToRadio entered");
             List<byte> localBuffer = new List<byte>();
             localBuffer.Add((byte)SpecialByte.SPECIAL_PREAMBLE);
             localBuffer.Add((byte)SpecialByte.SPECIAL_PREAMBLE);
             if (!raw)
             {
+                Log.Debug("not raw");
                 byte sender = (overridesender == 0xFF) ? Config.ControllerAddress : overridesender;
                 byte destination = (overridedestination == 0xFF) ? Config.RadioAddress : overridedestination;
 
@@ -305,24 +307,52 @@ namespace Icom.CIV
             }
             localBuffer.AddRange(commandBuffer);
             localBuffer.Add((byte)SpecialByte.SPECIAL_COMMANDEND);
+            Log.Debug("SP.write ReadTO={0} WriteTO={1}",sp.ReadTimeout,sp.WriteTimeout);
             sp.Write(localBuffer.ToArray(), 0, localBuffer.ToArray().Length);
+            Log.Debug("sp.write return");
             // Remove pre-amble and command end code
             localBuffer.RemoveRange(0, 2);
             localBuffer.Remove(localBuffer.Last());
             lastCommand = localBuffer.ToArray();
         }
 
+        // Execute AutoDetectRadio setting Serial Port write timeout to 2000ms (2 seconds)
+        // by default write timeout is infinite causing the write to hang if there is no response
+        public RadioInfo FindARadio(bool autoconnect = false)
+        {
+            RadioInfo FindResult = new RadioInfo();
+            int OrigWriteTimeout=-1;
+
+            Log.Debug("FindARadio entered");
+            if (sp != null)
+            {
+             OrigWriteTimeout = sp.WriteTimeout;
+             sp.WriteTimeout = 2000;
+            }
+
+            FindResult = AutoDetectRadio(autoconnect);
+
+            if (sp != null)
+                sp.WriteTimeout = OrigWriteTimeout;
+
+            Log.Debug("FindARadio exiting");
+            return FindResult;
+        }
+
+
         public RadioInfo AutoDetectRadio(bool autoconnect = false)
         {
-            Log.Debug("Core Autodetect entered");
+            Log.Debug("Core AutodetectRadio entered");
             if (sp != null && sp.IsOpen)
             {
+                Log.Debug("Autodetectradio port {0} is open", Config.SerialPort);
                 // If we have an open serial port, send the command to identify transceiver ID to broadcast address
                 byte[] command = { (byte)CommandBytes.COMMAND_TRANCEIVER_ID_READ, 0x00 };
-                Log.Debug("Waiting for response to ID read");
+                Log.Debug("Executing TransmitCommandToRadio");
                 TransmitCommandToRadio(command, 0x00);
+                Log.Debug("Command transmitted - now WaitForResponse");
                 byte[] result = WaitForResponse(250 + ((300 / (int)Config.SerialBaudRate) * 1000), true);
-                Log.Debug("response received");
+                Log.Debug("Response received. Length={ResultLength}",result.Length);
                 RadioInfo radioInfo = new RadioInfo();
 
                 // Search for empty array, empty result or NG result (bad command)
@@ -338,18 +368,20 @@ namespace Icom.CIV
                 radioInfo.CommPort = Config.SerialPort;
                 radioInfo.baudRate = Config.SerialBaudRate;
                 radioInfo.RadioName = GetEnumDescription(radioInfo.RadioID);
-                Log.Debug("Port:" + radioInfo.CommPort.ToString()+" baud:"+radioInfo.baudRate.ToString()+" RadioID:"+
-                                    radioInfo.RadioID.ToString());
+                Log.Debug("Radio found. Port:{0} Baud:{1} RadioID:{2}",radioInfo.CommPort,radioInfo.baudRate,radioInfo.RadioID);
    
                 return radioInfo;
             }
             else
             {
+                Log.Debug("Autodetectradio port {0} is NOT open", Config.SerialPort);
+
                 // We need a radio ID to connect
                 if (Config.RadioID == Radio.NULL_RADIO)
                     setRadioID(Radio.PC_CONTROL);
 
                 // Loop through each port, then each CIV Baud rate
+                Log.Debug("Looping through serial ports");
                 foreach (string thisPort in GetSerialPorts())
                 {
                     foreach (BaudRates thisBaud in Enum.GetValues(typeof(BaudRates)))
